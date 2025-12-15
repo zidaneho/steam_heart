@@ -1,0 +1,17 @@
+# Ignore the bin and obj directories for build outputs
+**/bin/
+**/obj/
+
+# Ignore test projects if you have any
+**/TestResults/
+
+# Ignore the project's own package directory
+**/packages/
+
+# Ignore any editor/IDE specific files
+.vscode/
+.vs/
+
+# Ignore Git files
+.git
+.gitignore

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine # Use an official image
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432" # Map internal port to host port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Volume for persistent data
+
+  # 2. ASP.NET Core Web API Service
+  webapi:
+    build:
+      context: . # Use the current directory as the build context
+      dockerfile: Dockerfile
+    container_name: webapi_app
+    ports:
+      - "8080:8080" # Map container port to host port (adjust if needed)
+    depends_on:
+      - postgres # Ensure Postgres starts before the API
+    environment:
+      # Use the service name 'postgres' for the host, as defined above
+      ConnectionStrings__DatabaseConnectionString: Host=postgres;Port=5432;Database=mydatabase;Username=myuser;Password=mypassword
+volumes:
+  postgres_data:
