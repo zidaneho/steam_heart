@@ -4,17 +4,17 @@ namespace SteamScout.Models
 {
     // 1. The wrapper wrapper. 
     // Steam returns { "success": true, "data": { ... } }
-    public class SteamAppResponse
+    public class SteamStoreResponse
     {
         [JsonPropertyName("success")]
         public bool Success { get; set; }
 
         [JsonPropertyName("data")]
-        public SteamGameData Data { get; set; }
+        public SteamStoreData Data { get; set; }
     }
 
     // 2. The actual game data you want
-    public class SteamGameData
+    public class SteamStoreData
     {
         [JsonPropertyName("steam_appid")]
         public int SteamAppId { get; set; }
@@ -46,5 +46,10 @@ namespace SteamScout.Models
 
         [JsonPropertyName("final_formatted")]
         public string FinalFormatted { get; set; }
+
+        [JsonPropertyName("discount_percent")]
+        public int DiscountPercent { get; set; }
+
+
     }
 }
