@@ -13,6 +13,8 @@ namespace SteamAlertsAPI.Data
         // This tells EF Core: "I want a table called 'Games' based on the 'Game' class"
         public DbSet<Game> GameTable { get; set; }
         public DbSet<Metric> MetricTable { get; set; }
+
+        public DbSet<Review> ReviewTable {get; set;}
     
     }
 }

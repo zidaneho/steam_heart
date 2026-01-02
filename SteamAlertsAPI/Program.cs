@@ -29,6 +29,14 @@ builder.Services.AddHangfire(configuration => configuration
 // 2. Add the processing server (this runs the background jobs)
 builder.Services.AddHangfireServer();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReact", builder =>
+    {
+        builder.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod();
+    });
+} );
+
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -57,6 +65,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHangfireDashboard();
 
+app.UseRouting();
+
+app.UseCors("AllowReact");
+
 app.UseHttpsRedirection();
 
 app.MapControllers();
@@ -66,6 +78,7 @@ RecurringJob.AddOrUpdate<ISteamService>(
     "hourly-steam-fetch", 
     service => service.FetchAllMetricsAsync(), 
     Cron.Weekly);
+
 
 
 app.Run();

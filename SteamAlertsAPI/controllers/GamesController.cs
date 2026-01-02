@@ -6,13 +6,14 @@ using SteamAlertsAPI.Services;
 
 namespace SteamAlertsAPI.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/games")] // Explicit lowercase is cleaner
     [ApiController]
     public class GamesController : ControllerBase
     {
         private readonly SteamAlertsContext context;
         private readonly ISteamService steamService;
-        public GamesController(SteamAlertsContext context,ISteamService steamService)
+
+        public GamesController(SteamAlertsContext context, ISteamService steamService)
         {
             this.context = context;
             this.steamService = steamService;
@@ -20,91 +21,70 @@ namespace SteamAlertsAPI.Controllers
 
         // GET: api/games
         [HttpGet]
-       public async Task<ActionResult<IEnumerable<Game>>> GetAll()
+        public async Task<ActionResult<IEnumerable<Game>>> GetAll()
         {
-            // usage: _context.TableName.ToListAsync()
             return await context.GameTable.ToListAsync();
         }
-        // GET: api/metrics
-        [HttpGet("metrics")]
-        public async Task<ActionResult<IEnumerable<Metric>>> GetAllMetrics()
-        {
-            return await context.MetricTable.ToListAsync();
-        }
-        // GET: api/games/1/metrics
-        [HttpGet("{id}/metrics")]
-        public async Task<ActionResult<IEnumerable<Metric>>> GetMetricsByAppID(int gameId)
-        {
-            var game = await context.GameTable.FindAsync(gameId);
-            if (game == null)
-            {
-                return NotFound();
-            }
-            return await context.MetricTable.Where(m => m.GameId == gameId).OrderByDescending(m => m.Timestamp).ToListAsync();
-        }
 
-        // GET: api/games/1
+        // GET: api/games/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Game>> GetById(int id)
         {
             var game = await context.GameTable.FindAsync(id);
-
-            if (game == null)
-            {
-                return NotFound(); // Returns HTTP 404
-            }
-
-            return Ok(game); // Returns HTTP 200 with the specific game
+            if (game == null) return NotFound();
+            return Ok(game);
         }
-        // POST: api/games/import
-        // The user sends some appid, we will save the game depending on the appid
-        [HttpPost("import")]
+
+        // POST: api/games (Import single game)
+        [HttpPost]
         public async Task<ActionResult<Game>> ImportGame([FromBody] int appid)
         {
-            var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == appid);
-            if (existingGame != null)
+            var result = await TryImportGameLogic(appid);
+            if (result.error != null)
             {
-                return Conflict(new { message = $"Game with AppId {appid} already exists: {existingGame.Name}" });
+                if (result.error.Contains("exists")) return Conflict(result.error);
+                return NotFound(result.error);
             }
-            var steamData = await steamService.GetGameDetailsAsync(appid);
-            
-            if (steamData == null)
-            {
-                return NotFound($"Could not find game with AppId {appid} on Steam.");
-            }
-            var newGame = new Game
-            {
-                Id = context.GameTable.Count() + 1,
-                Name = steamData.Name,
-                AppId = steamData.SteamAppId
-            };
-            context.GameTable.Add(newGame);
-            await context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById),new {id=newGame.Id},newGame);
 
+            context.GameTable.Add(result.game);
+            await context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetById), new { id = result.game.Id }, result.game);
         }
-        // POST: api/games/import
-        // The user sends some appid, we will save the metric depending on the appid
-        [HttpPost("import/metric")]
-        public async Task<ActionResult<Game>> ImportMetric([FromBody] int appid)
+
+        // POST: api/games/batch (Import multiple)
+        [HttpPost("batch")]
+        public async Task<ActionResult<List<Game>>> ImportMultipleGames([FromBody] List<int> appids)
+        {
+            List<Game> newGames = new List<Game>();
+            List<string> errors = new List<string>();
+
+            foreach (var appid in appids)
+            {
+                var result = await TryImportGameLogic(appid);
+                if (result.game != null) newGames.Add(result.game);
+                else errors.Add($"Failed {appid}: {result.error}");
+            }
+
+            if (newGames.Any())
+            {
+                context.GameTable.AddRange(newGames);
+                await context.SaveChangesAsync();
+            }
+
+            return Ok(new { Added = newGames, Errors = errors });
+        }
+
+        private async Task<(Game? game, string? error)> TryImportGameLogic(int appid)
         {
             var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == appid);
-            if (existingGame == null)
-            {
-                return NotFound($"Could not find game with AppId {appid} on Steam.");
-            }
-            Metric metric = await steamService.GetMetricAsync(appid);
-            
-            metric.Game = existingGame;
-            metric.GameId = existingGame.Id;
+            if (existingGame != null) return (null, $"Game {appid} already exists.");
 
-            context.MetricTable.Add(metric);
-            await context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById),new {id=metric.Id},metric);
+            var steamData = await steamService.GetGameDetailsAsync(appid);
+            if (steamData == null) return (null, $"AppId {appid} not found on Steam.");
 
+            var newGame = new Game { Name = steamData.Name, AppId = steamData.SteamAppId };
+            return (newGame, null);
         }
-
-       
-    
     }
 }

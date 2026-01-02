@@ -14,6 +14,8 @@ namespace SteamAlertsAPI.Services
 
         Task FetchAllMetricsAsync();
 
+        Task<SteamUserReviewsResponse> GetReviewStatsAsync(int appid,string cursor = "*");
+
 
     }
     public class SteamService : ISteamService
@@ -63,18 +65,17 @@ namespace SteamAlertsAPI.Services
             }
             return -1;
         }
-        public async Task<SteamUserReviewsResponse> GetReviewStatsAsync(int appid)
+        public async Task<SteamUserReviewsResponse> GetReviewStatsAsync(int appid, string cursor = "*")
         {
-            string url = $"https://store.steampowered.com/appreviews/{appid}?json=1";
+            string encodedCursor = Uri.EscapeDataString(cursor);
+            string url = $"https://store.steampowered.com/appreviews/{appid}?json=1&num_per_page=100&cursor={encodedCursor}";
             HttpResponseMessage response = await httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var jsonString = await response.Content.ReadAsStringAsync();
             var dict = JsonSerializer.Deserialize<SteamUserReviewsResponse>(jsonString);
-            if (dict != null)
-            {
-                return dict;
-            }
-            return null;
+           
+            return dict;
+            
         }
         
         public async Task<Metric> GetMetricAsync(int appid)
@@ -128,6 +129,9 @@ namespace SteamAlertsAPI.Services
             }
             await context.SaveChangesAsync();
         }
+
+       
     }
+
 
 }
