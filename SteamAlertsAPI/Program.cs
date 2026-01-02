@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using SteamAlertsAPI.Controllers;
 using SteamAlertsAPI.Data;
 using SteamAlertsAPI.Services;
@@ -55,11 +56,9 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+app.MapOpenApi();
+
+app.MapScalarApiReference();
 
 //app.UseHangfireDashboard();
 
