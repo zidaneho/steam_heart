@@ -29,11 +29,28 @@ var builder = WebApplication.CreateBuilder(args);
 // // 2. Add the processing server (this runs the background jobs)
 // builder.Services.AddHangfireServer();
 
+var allowedOrigins = builder.Configuration["AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+    .Select(o => o.Trim())
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReact", builder =>
+    options.AddPolicy("ProductionCors", policy =>
     {
-        builder.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod();
+        // 2. Only allow specific origins
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // Essential if you use Cookies/Auth tokens
+        }
+        else
+        {
+            // Fallback for safety: allow nothing if config is missing
+            policy.WithOrigins("https://your-frontend-domain.com"); 
+        }
     });
 });
 
@@ -71,9 +88,11 @@ app.MapScalarApiReference(options => { options.Servers = []; });
 
 app.UseRouting();
 
-app.UseCors("AllowReact");
+app.UseCors("ProductionCors");
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapControllers();
 
