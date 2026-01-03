@@ -49,13 +49,10 @@ builder.Services.AddCors(options =>
         else
         {
             // Fallback for safety: allow nothing if config is missing
-            policy.WithOrigins("https://your-frontend-domain.com"); 
+            policy.WithOrigins("https://your-frontend-domain.com");
         }
     });
 });
-
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connectionString))
@@ -67,9 +64,6 @@ builder.Services.AddDbContext<SteamAlertsContext>(options =>
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient<ISteamService, SteamService>();
-
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
