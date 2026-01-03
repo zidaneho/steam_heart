@@ -5,7 +5,6 @@ COPY *.csproj .
 RUN dotnet restore
 COPY . .
 RUN dotnet publish "SteamAlertsAPI.csproj" -c Release -o /app/publish
-RUN apk add --no-cache krb5-libs
 
 # Stage 2: Serve the application
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
