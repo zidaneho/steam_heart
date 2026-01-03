@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 using SteamAlertsAPI.Controllers;
 using SteamAlertsAPI.Data;
@@ -56,9 +57,15 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
+                       Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
+
 app.MapOpenApi();
 
-app.MapScalarApiReference();
+app.MapScalarApiReference(options => { options.Servers = []; });
 
 //app.UseHangfireDashboard();
 
