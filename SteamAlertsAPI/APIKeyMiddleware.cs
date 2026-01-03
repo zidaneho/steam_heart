@@ -15,29 +15,39 @@ public class ApiKeyMiddleware
         var appSettings = context.RequestServices.GetRequiredService<IConfiguration>();
         var apiKey = appSettings.GetValue<string>("X_API_KEY");
 
-        // 1. FAIL SAFE
+        // 1. FAIL SAFE: Block everything if server config is missing
         if (string.IsNullOrEmpty(apiKey))
         {
             var logger = context.RequestServices.GetRequiredService<ILogger<ApiKeyMiddleware>>();
-            logger.LogWarning("Security Warning: X_API_KEY is missing...");
+            logger.LogError("CRITICAL: X_API_KEY is missing. Blocking request.");
             context.Response.StatusCode = 500;
-            await context.Response.WriteAsync("Server config error");
+            await context.Response.WriteAsync("Server config error.");
             return;
         }
 
-        // 2. SEARCH FOR KEY (Header OR Query)
         string? extractedApiKey = null;
+        bool keyCameFromQuery = false;
 
+        // 2. SEARCH STRATEGY: Header -> Query -> Cookie
+
+        // A. Check Header (Best for Postman/Code)
         if (context.Request.Headers.TryGetValue(APIKEYNAME, out var headerVal))
         {
             extractedApiKey = headerVal.ToString();
         }
+        // B. Check Query String (Best for Browser Initial Visit)
         else if (context.Request.Query.TryGetValue(APIKEYNAME, out var queryVal))
         {
             extractedApiKey = queryVal.ToString();
+            keyCameFromQuery = true; // Mark this so we can set a cookie later
+        }
+        // C. Check Cookie (Best for Browser Assets/Subsequent requests)
+        else if (context.Request.Cookies.TryGetValue(APIKEYNAME, out var cookieVal))
+        {
+            extractedApiKey = cookieVal;
         }
 
-        // 3. IF MISSING IN BOTH PLACES -> 401
+        // 3. IF MISSING EVERYWHERE -> 401
         if (string.IsNullOrEmpty(extractedApiKey))
         {
             context.Response.StatusCode = 401;
@@ -45,12 +55,25 @@ public class ApiKeyMiddleware
             return;
         }
 
-        // 4. COMPARE
+        // 4. VALIDATE KEY
         if (!apiKey.Equals(extractedApiKey))
         {
             context.Response.StatusCode = 403;
             await context.Response.WriteAsync("Unauthorized client.");
             return;
+        }
+
+        // 5. SUCCESS: If the user provided the key in the URL, save it to a Cookie.
+        // This allows the browser to load scalar.js, styles.css, and openapi.json automatically.
+        if (keyCameFromQuery)
+        {
+            context.Response.Cookies.Append(APIKEYNAME, extractedApiKey, new CookieOptions
+            {
+                HttpOnly = true, // Javascript can't steal it
+                Secure = true,   // HTTPS only
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddHours(1) // Cookie lasts 1 hour
+            });
         }
 
         await _next(context);
