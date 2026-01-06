@@ -75,7 +75,6 @@ namespace SteamAlertsAPI.Services
             var dict = JsonSerializer.Deserialize<SteamUserReviewsResponse>(jsonString);
            
             return dict;
-            
         }
         
         public async Task<Metric> GetMetricAsync(int appid)

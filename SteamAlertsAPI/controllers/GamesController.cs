@@ -54,16 +54,16 @@ namespace SteamAlertsAPI.Controllers
 
         // POST: api/games/batch (Import multiple)
         [HttpPost("batch")]
-        public async Task<ActionResult<List<Game>>> ImportMultipleGames([FromBody] List<int> appids)
+        public async Task<ActionResult<List<Game>>> ImportMultipleGames([FromBody] List<Game> games)
         {
+            //We will trust that the input is correct
             List<Game> newGames = new List<Game>();
             List<string> errors = new List<string>();
 
-            foreach (var appid in appids)
+            foreach (var game in games)
             {
-                var result = await TryImportGameLogic(appid);
-                if (result.game != null) newGames.Add(result.game);
-                else errors.Add($"Failed {appid}: {result.error}");
+                if (game != null) newGames.Add(game);
+                else errors.Add($"Failed {game.AppId}");
             }
 
             if (newGames.Any())

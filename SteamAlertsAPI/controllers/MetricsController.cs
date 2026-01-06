@@ -48,7 +48,7 @@ namespace SteamAlertsAPI.Controllers
         {
             var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == appid);
             if (existingGame == null) return NotFound($"Could not find game with AppId {appid} on Steam.");
-            
+
             Metric metric = await steamService.GetMetricAsync(appid);
 
             metric.Game = existingGame;
@@ -58,6 +58,13 @@ namespace SteamAlertsAPI.Controllers
             await context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetById), new { id = metric.Id }, metric);
+        }
+        public async Task<ActionResult<Game>> ImportMetricByGameId([FromBody] int gameId)
+        {
+            var game = await context.GameTable.FindAsync(gameId);
+            if (game == null) return NotFound($"Game {gameId} not found");
+
+            return await ImportMetric(game.AppId);
         }
     }
 }
