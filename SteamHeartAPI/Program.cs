@@ -75,6 +75,12 @@ if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith(
     var port = uri.Port > 0 ? uri.Port : 5432;
     var database = uri.AbsolutePath.TrimStart('/');
     connectionString = $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password}";
+
+    // Preserve sslmode from the URI query string (e.g. ?sslmode=require needed for Supabase)
+    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+    var sslMode = query["sslmode"];
+    if (!string.IsNullOrEmpty(sslMode))
+        connectionString += $";SSL Mode={sslMode}";
 }
 
 // Log which source was used (without the password) to help diagnose deployment issues.
