@@ -55,11 +55,20 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Support DATABASE_URL env var (standard on most hosting platforms) as well as
+// the ASP.NET Core nested-key form ConnectionStrings__DefaultConnection.
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
 if (string.IsNullOrEmpty(connectionString))
 {
-    throw new InvalidOperationException("Connection string 'DefaultConnection' not found in appsettings.json.");
+    throw new InvalidOperationException("No database connection string found. Set DATABASE_URL or ConnectionStrings__DefaultConnection.");
 }
+
+// Log which source was used (without the password) to help diagnose deployment issues.
+var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
+var safeConnStr = System.Text.RegularExpressions.Regex.Replace(connectionString, @"[Pp]assword=[^;]+", "password=***");
+logger.LogInformation("Using connection string: {ConnStr}", safeConnStr);
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 dataSourceBuilder.EnableDynamicJson();
