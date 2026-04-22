@@ -65,6 +65,18 @@ if (string.IsNullOrEmpty(connectionString))
     throw new InvalidOperationException("No database connection string found. Set DATABASE_URL or ConnectionStrings__DefaultConnection.");
 }
 
+// Npgsql requires key=value format. Convert postgresql:// URI if needed.
+if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
+{
+    var uri = new Uri(connectionString);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var username = Uri.UnescapeDataString(userInfo[0]);
+    var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+    var port = uri.Port > 0 ? uri.Port : 5432;
+    var database = uri.AbsolutePath.TrimStart('/');
+    connectionString = $"Host={uri.Host};Port={port};Database={database};Username={username};Password={password}";
+}
+
 // Log which source was used (without the password) to help diagnose deployment issues.
 var startupLogger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
 var safeConnStr = System.Text.RegularExpressions.Regex.Replace(connectionString, @"[Pp]assword=[^;]+", "password=***");
