@@ -66,9 +66,9 @@ if (string.IsNullOrEmpty(connectionString))
 }
 
 // Log which source was used (without the password) to help diagnose deployment issues.
-var logger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
+var startupLogger = LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup");
 var safeConnStr = System.Text.RegularExpressions.Regex.Replace(connectionString, @"[Pp]assword=[^;]+", "password=***");
-logger.LogInformation("Using connection string: {ConnStr}", safeConnStr);
+startupLogger.LogInformation("Using connection string: {ConnStr}", safeConnStr);
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 dataSourceBuilder.EnableDynamicJson();
