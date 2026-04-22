@@ -55,9 +55,9 @@ Create a database and user:
 ```sql
 psql -U postgres
 
-CREATE DATABASE steamalerts;
-CREATE USER steamalerts_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE steamalerts TO steamalerts_user;
+CREATE DATABASE steamheart;
+CREATE USER steamheart_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE steamheart TO steamheart_user;
 \q
 ```
 
@@ -70,7 +70,7 @@ Edit `SteamHeartAPI/appsettings.json` and fill in your values:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=steamalerts;Username=steamalerts_user;Password=your_password"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=steamheart;Username=steamheart_user;Password=your_password"
   },
   "AllowedOrigins": "http://localhost:3000",
   "X_API_KEY": "choose-a-secret-key"
@@ -165,14 +165,14 @@ In production these are set as environment variables on your host (e.g. Render e
 
 ```
 steam_alerts/
-├── SteamHeartAPI/          # ASP.NET Core Web API
+├── SteamHeartAPI/           # ASP.NET Core Web API
 │   ├── controllers/         # HTTP endpoints
 │   ├── services/            # Steam API integration
 │   ├── models/              # Database entities and API response models
 │   ├── data/                # EF Core DbContext
 │   ├── Migrations/          # Database migration history
 │   └── Dockerfile           # Container build
-├── SteamHeart.Worker/      # One-shot catalog seeding tool
+├── SteamHeart.Worker/       # One-shot catalog seeding tool
 └── web/                     # Next.js frontend
 ```
 
@@ -184,11 +184,13 @@ All requests require either an `X-Api-Key` header or `?X-Api-Key=` query paramet
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/games` | List all tracked games |
+| GET | `/api/games` | List all tracked games (paginated) |
 | POST | `/api/games` | Import a single game by Steam AppId |
 | POST | `/api/games/batch` | Bulk import games |
+| GET | `/api/games/{id}` | Get a single game by internal ID |
 | GET | `/api/games/{id}/metrics` | Get historical metrics for a game |
 | POST | `/api/metrics/import` | Fetch and store current metrics for a game |
-| GET | `/api/games/{id}/reviews` | Get stored reviews for a game |
+| GET | `/api/games/{id}/reviews` | Get stored reviews for a game (paginated) |
 | POST | `/api/games/{id}/reviews/sync` | Sync reviews from Steam for a game |
-| GET | `/api/reviews` | Get all reviews (paginated) |
+| GET | `/api/games/{id}/reviews/summary` | Get daily positive/negative review counts |
+| GET | `/api/reviews` | Get all reviews across all games (paginated) |
