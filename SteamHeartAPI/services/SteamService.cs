@@ -1,52 +1,63 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
-using SteamAlertsAPI.Data;
-using SteamAlertsAPI.Models;
-using SteamScout.Models;
+using SteamHeartAPI.Data;
+using SteamHeartAPI.Models;
 
-namespace SteamAlertsAPI.Services
+namespace SteamHeartAPI.Services
 {
     public interface ISteamService
     {
-        Task<SteamStoreData> GetGameDetailsAsync(int appid);
+        Task<SteamAppInfo> GetAppInfoAsync(int appid);
         Task<Metric> GetMetricAsync(int appid);
-
         Task FetchAllMetricsAsync();
-
-        Task<SteamUserReviewsResponse> GetReviewStatsAsync(int appid,string cursor = "*");
-
-
+        Task<SteamUserReviewsResponse> GetReviewStatsAsync(int appid, string cursor = "*");
+        Task<Dictionary<string, int>> GetTagsAsync(int appid);
     }
     public class SteamService : ISteamService
     {
         private readonly HttpClient httpClient;
-        private readonly SteamAlertsContext context;
+        private readonly SteamHeartContext context;
         //api.steampowered.com<interface name>/<method name>/v1/?key=<api key>&format=<format>
-        public SteamService(HttpClient httpClient, SteamAlertsContext context)
+        public SteamService(HttpClient httpClient, SteamHeartContext context)
         {
             this.httpClient = httpClient;
             this.context = context;
         }
 
-        public async Task<SteamStoreData> GetGameDetailsAsync(int appid)
+
+        public async Task<SteamAppInfo> GetAppInfoAsync(int appid)
         {
             string url = $"https://store.steampowered.com/api/appdetails/?appids={appid}";
 
             HttpResponseMessage response = await httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var jsonString = await response.Content.ReadAsStringAsync();
-            var dict = JsonSerializer.Deserialize<Dictionary<string,SteamStoreResponse>>(jsonString);
-            if (dict != null && dict.ContainsKey(appid.ToString()))
+            var dict = JsonSerializer.Deserialize<Dictionary<string, SteamAppDetails>>(jsonString);
+            if (dict != null && dict.TryGetValue(appid.ToString(), out var appDetails) && appDetails.Success)
             {
-                var gameInfo = dict[appid.ToString()];
-                if (gameInfo.Success)
-                {
-                    return gameInfo.Data;
-                }
+                return appDetails.Data;
             }
             return null;
         }
+        public async Task<Dictionary<string, int>> GetTagsAsync(int appid)
+        {
+            try
+            {
+                string url = $"https://steamspy.com/api.php?request=appdetails&appid={appid}";
+                var response = await httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                var data = JsonSerializer.Deserialize<SteamSpyAppData>(json);
+                return data?.Tags ?? new Dictionary<string, int>();
+            }
+            catch
+            {
+                return new Dictionary<string, int>();
+            }
+
+        }
+
         public async Task<int> GetPlayerCountAsync(int appid)
         {
             string url = $"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid}";
@@ -54,7 +65,7 @@ namespace SteamAlertsAPI.Services
             HttpResponseMessage response = await httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var jsonString = await response.Content.ReadAsStringAsync();
-            var dict = JsonSerializer.Deserialize<Dictionary<string,SteamUserStatsResponse>>(jsonString);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, SteamUserStatsResponse>>(jsonString);
             if (dict != null && dict.ContainsKey("response"))
             {
                 var gameInfo = dict["response"];
@@ -73,14 +84,14 @@ namespace SteamAlertsAPI.Services
             response.EnsureSuccessStatusCode();
             var jsonString = await response.Content.ReadAsStringAsync();
             var dict = JsonSerializer.Deserialize<SteamUserReviewsResponse>(jsonString);
-           
+
             return dict;
         }
-        
+
         public async Task<Metric> GetMetricAsync(int appid)
         {
             // 1. Start all tasks simultaneously
-            var detailsTask = GetGameDetailsAsync(appid);
+            var detailsTask = GetAppInfoAsync(appid);
             var playerTask = GetPlayerCountAsync(appid);
             var reviewsTask = GetReviewStatsAsync(appid);
 
@@ -129,7 +140,7 @@ namespace SteamAlertsAPI.Services
             await context.SaveChangesAsync();
         }
 
-       
+
     }
 
 

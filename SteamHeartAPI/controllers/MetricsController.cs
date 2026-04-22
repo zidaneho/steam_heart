@@ -1,19 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SteamAlertsAPI.Data;
-using SteamAlertsAPI.Models;
-using SteamAlertsAPI.Services;
+using SteamHeartAPI.Data;
+using SteamHeartAPI.Models;
+using SteamHeartAPI.Services;
 
-namespace SteamAlertsAPI.Controllers
+namespace SteamHeartAPI.Controllers
 {
     [Route("api/metrics")]
     [ApiController]
     public class MetricsController : ControllerBase
     {
-        private readonly SteamAlertsContext context;
+        private readonly SteamHeartContext context;
         private readonly ISteamService steamService;
 
-        public MetricsController(SteamAlertsContext context, ISteamService steamService)
+        public MetricsController(SteamHeartContext context, ISteamService steamService)
         {
             this.context = context;
             this.steamService = steamService;

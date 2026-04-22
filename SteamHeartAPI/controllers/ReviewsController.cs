@@ -1,21 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SteamAlertsAPI.Data;
-using SteamAlertsAPI.Helpers;
-using SteamAlertsAPI.Models;
-using SteamAlertsAPI.Services;
+using SteamHeartAPI.Data;
+using SteamHeartAPI.Helpers;
+using SteamHeartAPI.Models;
+using SteamHeartAPI.Services;
 
-namespace SteamAlertsAPI.Controllers
+namespace SteamHeartAPI.Controllers
 {
     // This controller handles all reviews for a SPECIFIC game
     [Route("api/games/{gameId}/reviews")]
     [ApiController]
     public class ReviewsController : ControllerBase
     {
-        private readonly SteamAlertsContext context;
+        private readonly SteamHeartContext context;
         private readonly ISteamService steamService;
 
-        public ReviewsController(SteamAlertsContext context, ISteamService steamService)
+        public ReviewsController(SteamHeartContext context, ISteamService steamService)
         {
             this.context = context;
             this.steamService = steamService;
@@ -23,18 +23,27 @@ namespace SteamAlertsAPI.Controllers
 
         // GET: api/games/5/reviews
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Review>>> GetReviews(int gameId)
+        public async Task<ActionResult<IEnumerable<Review>>> GetReviews(int gameId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             // Simple check to ensure game exists
             if (!await context.GameTable.AnyAsync(g => g.Id == gameId))
             {
                 return NotFound($"Game {gameId} not found.");
             }
-
-            return await context.ReviewTable
-                .Where(r => r.GameId == gameId)
-                .OrderByDescending(r => r.TimestampCreated) // Good default sort
+            var query = context.ReviewTable.OrderBy(g => g.Id).Where(r => r.GameId == gameId);
+            var total = await query.CountAsync();
+            var reviews = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+
+            return Ok(new {
+                Data = reviews,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize)
+            });
         }
 
         // POST: api/games/5/reviews/sync
@@ -58,16 +67,17 @@ namespace SteamAlertsAPI.Controllers
             int totalSynced = 0;
             while (moreDataAvailable)
             {
-                var response = await steamService.GetReviewStatsAsync(game.AppId);
+                var response = await steamService.GetReviewStatsAsync(game.AppId, currentCursor);
                 if (response == null || response.Reviews == null)
                     break;
                 foreach (var review in response.Reviews)
                 {
                     if (review.RecommendationId == null) continue;
-
+                    
                     if (processedIds.Contains(review.RecommendationId))
                     {
-                        continue;
+                        moreDataAvailable = false;
+                        break;
                     }
                     processedIds.Add(review.RecommendationId);
 
@@ -138,14 +148,41 @@ namespace SteamAlertsAPI.Controllers
             return Ok(new { Count = totalSynced, Message = "Reviews synced successfully." });
         }
         [HttpGet("~/api/reviews")]
-        public async Task<ActionResult<IEnumerable<Review>>> GetAllReviews()
+        public async Task<ActionResult<IEnumerable<Review>>> GetAllReviews([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            // Warning: This returns EVERYTHING. 
-            // Recommended: Use .Take(100) to prevent crashing if you have 50k reviews.
-            return await context.ReviewTable
-                .OrderByDescending(r => r.TimestampCreated)
-                .Take(100)
+            var query = context.ReviewTable.OrderBy(g => g.Id);
+            var total = await query.CountAsync();
+            var games = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+            return Ok(new {
+                Data = games,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize)
+          });
+        }
+
+        [HttpGet("summary")]
+        public async Task<ActionResult<ReviewSummary[]>> GetReviewSummary(int gameId)
+        {
+            if (!await context.GameTable.AnyAsync(g => g.Id == gameId))
+                return NotFound($"Game {gameId} not found.");
+            var query = await context.ReviewTable
+                .Where(r => r.GameId == gameId)
+                .GroupBy(r => r.TimestampCreated.Date)
+                .Select(g => new ReviewSummary
+                {
+                    Day = g.Key,
+                    PositiveCount = g.Count(r => r.VotedUp),
+                    NegativeCount = g.Count(r => !r.VotedUp)
+                })
+                .OrderBy(r => r.Day)
+                .ToListAsync();
+            return Ok(query);
+
         }
     }
 

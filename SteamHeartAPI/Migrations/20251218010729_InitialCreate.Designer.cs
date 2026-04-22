@@ -5,13 +5,13 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using SteamAlertsAPI.Data;
+using SteamHeartAPI.Data;
 
 #nullable disable
 
-namespace SteamAlertsAPI.Migrations
+namespace SteamHeartAPI.Migrations
 {
-    [DbContext(typeof(SteamAlertsContext))]
+    [DbContext(typeof(SteamHeartContext))]
     [Migration("20251218010729_InitialCreate")]
     partial class InitialCreate
     {
@@ -25,7 +25,7 @@ namespace SteamAlertsAPI.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SteamAlertsAPI.Models.Game", b =>
+            modelBuilder.Entity("SteamHeartAPI.Models.Game", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -45,7 +45,7 @@ namespace SteamAlertsAPI.Migrations
                     b.ToTable("GameTable");
                 });
 
-            modelBuilder.Entity("SteamAlertsAPI.Models.Metric", b =>
+            modelBuilder.Entity("SteamHeartAPI.Models.Metric", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -84,9 +84,9 @@ namespace SteamAlertsAPI.Migrations
                     b.ToTable("MetricTable");
                 });
 
-            modelBuilder.Entity("SteamAlertsAPI.Models.Metric", b =>
+            modelBuilder.Entity("SteamHeartAPI.Models.Metric", b =>
                 {
-                    b.HasOne("SteamAlertsAPI.Models.Game", "Game")
+                    b.HasOne("SteamHeartAPI.Models.Game", "Game")
                         .WithMany()
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade)

@@ -1,19 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SteamAlertsAPI.Data;
-using SteamAlertsAPI.Models;
-using SteamAlertsAPI.Services;
+using SteamHeartAPI.Data;
+using SteamHeartAPI.Models;
+using SteamHeartAPI.Services;
 
-namespace SteamAlertsAPI.Controllers
+namespace SteamHeartAPI.Controllers
 {
     [Route("api/games")] // Explicit lowercase is cleaner
     [ApiController]
     public class GamesController : ControllerBase
     {
-        private readonly SteamAlertsContext context;
+        private readonly SteamHeartContext context;
         private readonly ISteamService steamService;
 
-        public GamesController(SteamAlertsContext context, ISteamService steamService)
+        public GamesController(SteamHeartContext context, ISteamService steamService)
         {
             this.context = context;
             this.steamService = steamService;
@@ -21,9 +21,23 @@ namespace SteamAlertsAPI.Controllers
 
         // GET: api/games
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Game>>> GetAll()
+        public async Task<ActionResult<IEnumerable<Game>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            return await context.GameTable.ToListAsync();
+            var query = context.GameTable.OrderBy(g => g.Id);
+            var total = await query.CountAsync();
+            var games = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+            
+            return Ok(new
+            {
+                Data = games,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize)
+            });
         }
 
         // GET: api/games/5
@@ -62,6 +76,11 @@ namespace SteamAlertsAPI.Controllers
 
             foreach (var game in games)
             {
+                var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == game.AppId);
+                if (existingGame != null)
+                {
+                    continue;
+                }
                 if (game != null) newGames.Add(game);
                 else errors.Add($"Failed {game.AppId}");
             }
@@ -80,10 +99,12 @@ namespace SteamAlertsAPI.Controllers
             var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == appid);
             if (existingGame != null) return (null, $"Game {appid} already exists.");
 
-            var steamData = await steamService.GetGameDetailsAsync(appid);
+            var steamData = await steamService.GetAppInfoAsync(appid);
             if (steamData == null) return (null, $"AppId {appid} not found on Steam.");
 
-            var newGame = new Game { Name = steamData.Name, AppId = steamData.SteamAppId };
+            var tags = await steamService.GetTagsAsync(appid);
+
+            var newGame = new Game { Name = steamData.Name, AppId = steamData.SteamAppId, Tags = tags, Developer = steamData.Developers?.FirstOrDefault() ?? "Unknown", Publisher = steamData.Publishers?.FirstOrDefault() ?? "Unknown", Genre = steamData.Genres?.FirstOrDefault()?.Description ?? "Unknown", ReleaseDate = steamData.ReleaseDate?.Date ?? "Unknown", HeaderImageUrl = steamData.HeaderImage ?? "Unknown" };
             return (newGame, null);
         }
     }

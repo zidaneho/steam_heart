@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace SteamAlertsAPI.Models
+namespace SteamHeartAPI.Models
 {
     public class SteamUserReviewsResponse
     {

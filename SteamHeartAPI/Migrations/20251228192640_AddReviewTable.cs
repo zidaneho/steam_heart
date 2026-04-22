@@ -4,7 +4,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace SteamAlertsAPI.Migrations
+namespace SteamHeartAPI.Migrations
 {
     /// <inheritdoc />
     public partial class AddReviewTable : Migration

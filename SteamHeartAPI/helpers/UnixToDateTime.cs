@@ -1,4 +1,4 @@
-namespace SteamAlertsAPI.Helpers
+namespace SteamHeartAPI.Helpers
 {
     public class Utilities {
         public static DateTime UnixTimeStampToDateTime(long unixTimeStamp)

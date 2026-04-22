@@ -1,4 +1,4 @@
-namespace SteamAlertsAPI.Models
+namespace SteamHeartAPI.Models
 {
     public class Metric
     {

@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using Scalar.AspNetCore;
-using SteamAlertsAPI.Controllers;
-using SteamAlertsAPI.Data;
-using SteamAlertsAPI.Services;
+using SteamHeartAPI.Controllers;
+using SteamHeartAPI.Data;
+using SteamHeartAPI.Services;
 // using Hangfire;
 // using Hangfire.SqlServer;
 // using Hangfire.Dashboard;
@@ -59,8 +60,13 @@ if (string.IsNullOrEmpty(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found in appsettings.json.");
 }
-builder.Services.AddDbContext<SteamAlertsContext>(options =>
-    options.UseNpgsql(connectionString));
+
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+dataSourceBuilder.EnableDynamicJson();
+var dataSource = dataSourceBuilder.Build();
+
+builder.Services.AddDbContext<SteamHeartContext>(options =>
+    options.UseNpgsql(dataSource));
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient<ISteamService, SteamService>();
@@ -101,7 +107,7 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
-        var context = services.GetRequiredService<SteamAlertsContext>();
+        var context = services.GetRequiredService<SteamHeartContext>();
         // This applies any pending migrations and creates the database if it doesn't exist
         context.Database.Migrate();
     }

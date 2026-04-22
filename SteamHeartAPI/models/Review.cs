@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SteamAlertsAPI.Models
+namespace SteamHeartAPI.Models
 {
     public class Review
     {
@@ -46,7 +46,14 @@ namespace SteamAlertsAPI.Models
         public DateTime AuthorLastPlayed { get; set; }
 
         //custom fields
-        public int UpdatedCount {get; set;}
+        public int UpdatedCount { get; set; }
 
+    }
+
+    public class ReviewSummary
+    {
+        public DateTime Day { get; set; }
+        public int PositiveCount { get; set; }
+        public int NegativeCount { get; set; }
     }
 }
