@@ -70,20 +70,14 @@ namespace SteamHeartAPI.Controllers
         [HttpPost("batch")]
         public async Task<ActionResult<List<Game>>> ImportMultipleGames([FromBody] List<Game> games)
         {
-            //We will trust that the input is correct
-            List<Game> newGames = new List<Game>();
-            List<string> errors = new List<string>();
+            var incomingAppIds = games.Select(g => g.AppId).ToList();
 
-            foreach (var game in games)
-            {
-                var existingGame = await context.GameTable.FirstOrDefaultAsync(g => g.AppId == game.AppId);
-                if (existingGame != null)
-                {
-                    continue;
-                }
-                if (game != null) newGames.Add(game);
-                else errors.Add($"Failed {game.AppId}");
-            }
+            var existingAppIds = await context.GameTable
+                .Where(g => incomingAppIds.Contains(g.AppId))
+                .Select(g => g.AppId)
+                .ToHashSetAsync();
+
+            var newGames = games.Where(g => !existingAppIds.Contains(g.AppId)).ToList();
 
             if (newGames.Any())
             {
@@ -91,7 +85,7 @@ namespace SteamHeartAPI.Controllers
                 await context.SaveChangesAsync();
             }
 
-            return Ok(new { Added = newGames, Errors = errors });
+            return Ok(new { Added = newGames.Count, Skipped = existingAppIds.Count });
         }
 
         private async Task<(Game? game, string? error)> TryImportGameLogic(int appid)
