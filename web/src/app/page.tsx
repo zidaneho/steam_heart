@@ -13,7 +13,7 @@ export default function Home() {
   const [games, setGames] = useState<Game[]>([]);
   useEffect(() => {
     axios
-      .get("http://localhost:5116/api/games")
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/games`)
       .then((response) => {
         // Axios stores the actual JSON in the .data property
         setGames(response.data);
