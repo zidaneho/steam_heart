@@ -8,11 +8,15 @@ public class SteamCatalogService
     private readonly HttpClient _httpClient;
     private readonly string apiKey;
 
+    private readonly string apiUrl;
+
     public SteamCatalogService()
     {
         _httpClient = new HttpClient();
         apiKey = Environment.GetEnvironmentVariable("X_Api_Key")
             ?? throw new Exception("X_Api_Key is missing!");
+        apiUrl = Environment.GetEnvironmentVariable("API_URL")
+            ?? throw new Exception("API_URL is missing!");
     }
 
     public async Task UpdateGameListAsync()
@@ -46,7 +50,7 @@ public class SteamCatalogService
     public async Task UploadGamesAsync(Game[] games)
     {
         var client = new HttpClient();
-        var url = $"https://steamheart-92hd.onrender.com/api/games/batch";
+        var url = $"{apiUrl}/api/games/batch";
 
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 
