@@ -65,12 +65,21 @@ if (string.IsNullOrEmpty(connectionString))
     throw new InvalidOperationException("No database connection string found. Set DATABASE_URL or ConnectionStrings__DefaultConnection.");
 }
 
-// Npgsql natively supports postgresql:// URIs — no manual conversion needed.
-// Just ensure sslmode=require is present for Supabase.
-if ((connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
-    && !connectionString.Contains("sslmode"))
+// Npgsql does not support postgresql:// URIs — convert to key=value format.
+if (connectionString.StartsWith("postgresql://") || connectionString.StartsWith("postgres://"))
 {
-    connectionString += (connectionString.Contains('?') ? "&" : "?") + "sslmode=require";
+    var uri = new Uri(connectionString);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var connBuilder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "",
+        SslMode = Npgsql.SslMode.Require
+    };
+    connectionString = connBuilder.ConnectionString;
 }
 
 // Log which source was used (without the password) to help diagnose deployment issues.
