@@ -22,6 +22,9 @@ public class SteamCatalogService
     public async Task UpdateGameListAsync()
     {
         Console.WriteLine("--- Starting Catalog Update ---");
+        Console.WriteLine("Warming up API...");
+        try { await _httpClient.GetAsync($"{apiUrl}/api/games?pageSize=1"); } catch { }
+        await Task.Delay(3000);
 
         // 1. Fetch the raw JSON from the repo you found
         var url = "https://raw.githubusercontent.com/jsnli/steamappidlist/master/data/games_appid.json";
@@ -29,25 +32,43 @@ public class SteamCatalogService
 
         if (steamGames == null) return;
         Console.WriteLine($"Downloaded {steamGames.Count} games from GitHub.");
-        Game[] games = steamGames.Select(g => new Game { AppId = g.AppId, Name = g.Name }).ToArray();
-        var batches = games.Chunk(500);
+        var nullNameCount = steamGames.Count(g => string.IsNullOrWhiteSpace(g.Name));
+        Console.WriteLine($"Games with null/empty names (will be skipped): {nullNameCount}");
+        Game[] games = steamGames
+            .Where(g => !string.IsNullOrWhiteSpace(g.Name))
+            .Select(g => new Game { AppId = g.AppId, Name = g.Name })
+            .ToArray();
+        var batches = games.Chunk(100);
         int batchCount = 0;
         int totalBatches = batches.Count();
 
         foreach (var batch in batches)
         {
             batchCount++;
-            await UploadGamesAsync(batch);
-            Console.WriteLine($"Uploaded batch {batchCount}/{totalBatches}");
+            bool success = false;
+            int attempts = 0;
+            while (!success && attempts < 3)
+            {
+                attempts++;
+                success = await UploadGamesAsync(batch);
+                if (!success)
+                {
+                    Console.WriteLine($"Batch {batchCount}/{totalBatches} failed (attempt {attempts}/3), retrying in 5s...");
+                    await Task.Delay(5000);
+                }
+            }
+            if (!success)
+                Console.WriteLine($"Batch {batchCount}/{totalBatches} permanently failed — AppIds: {string.Join(", ", batch.Select(g => g.AppId))}");
+            else
+                Console.WriteLine($"Uploaded batch {batchCount}/{totalBatches}");
 
-            // Small breather to be nice to your server CPU
-            await Task.Delay(500);
+            await Task.Delay(200);
         }
 
         Console.WriteLine("--- Catalog Update Complete ---");
     }
 
-    public async Task UploadGamesAsync(Game[] games)
+    public async Task<bool> UploadGamesAsync(Game[] games)
     {
         var client = new HttpClient();
         var url = $"{apiUrl}/api/games/batch";
@@ -57,17 +78,11 @@ public class SteamCatalogService
         var response = await client.PostAsJsonAsync(url, games);
 
         if (response.IsSuccessStatusCode)
-        {
-            Console.WriteLine("Success! Data saved.");
-        }
-        else
-        {
-            var error = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"Error: {response.StatusCode} - {error}");
-        }
+            return true;
 
-
-
+        var error = await response.Content.ReadAsStringAsync();
+        Console.WriteLine($"Error: {response.StatusCode} - {error}");
+        return false;
     }
 }
 

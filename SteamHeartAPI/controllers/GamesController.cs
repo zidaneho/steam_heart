@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SteamHeartAPI.Data;
 using SteamHeartAPI.Models;
 using SteamHeartAPI.Services;
@@ -17,6 +18,40 @@ namespace SteamHeartAPI.Controllers
         {
             this.context = context;
             this.steamService = steamService;
+        }
+
+        // GET: api/games/unenriched
+        [HttpGet("unenriched")]
+        public async Task<ActionResult> GetUnenriched([FromQuery] int page = 1, [FromQuery] int pageSize = 100)
+        {
+            var query = context.GameTable.Where(g => g.Developer == null).OrderBy(g => g.Id);
+            var total = await query.CountAsync();
+            var games = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            return Ok(new { Data = games, Page = page, PageSize = pageSize, TotalCount = total });
+        }
+
+        // PUT: api/games/batch-update
+        [HttpPut("batch-update")]
+        public async Task<ActionResult> BatchUpdate([FromBody] List<Game> games)
+        {
+            var appIds = games.Select(g => g.AppId).ToList();
+            var existing = await context.GameTable
+                .Where(g => appIds.Contains(g.AppId))
+                .ToListAsync();
+
+            foreach (var record in existing)
+            {
+                var update = games.First(g => g.AppId == record.AppId);
+                record.Developer = update.Developer;
+                record.Publisher = update.Publisher;
+                record.Genre = update.Genre;
+                record.ReleaseDate = update.ReleaseDate;
+                record.HeaderImageUrl = update.HeaderImageUrl;
+                record.Tags = update.Tags;
+            }
+
+            await context.SaveChangesAsync();
+            return Ok(new { Updated = existing.Count });
         }
 
         // GET: api/games
@@ -68,24 +103,23 @@ namespace SteamHeartAPI.Controllers
 
         // POST: api/games/batch (Import multiple)
         [HttpPost("batch")]
-        public async Task<ActionResult<List<Game>>> ImportMultipleGames([FromBody] List<Game> games)
+        public async Task<ActionResult> ImportMultipleGames([FromBody] List<Game> games)
         {
-            var incomingAppIds = games.Select(g => g.AppId).ToList();
+            if (games == null || games.Count == 0)
+                return Ok(new { Added = 0 });
 
-            var existingAppIds = await context.GameTable
-                .Where(g => incomingAppIds.Contains(g.AppId))
-                .Select(g => g.AppId)
-                .ToHashSetAsync();
+            var appIds = games.Select(g => g.AppId).ToArray();
+            var names = games.Select(g => g.Name).ToArray();
 
-            var newGames = games.Where(g => !existingAppIds.Contains(g.AppId)).ToList();
+            await context.Database.ExecuteSqlRawAsync(@"
+                INSERT INTO ""GameTable"" (""AppId"", ""Name"")
+                SELECT * FROM unnest(@appIds, @names)
+                ON CONFLICT (""AppId"") DO NOTHING",
+                new Npgsql.NpgsqlParameter("appIds", appIds),
+                new Npgsql.NpgsqlParameter("names", names)
+            );
 
-            if (newGames.Any())
-            {
-                context.GameTable.AddRange(newGames);
-                await context.SaveChangesAsync();
-            }
-
-            return Ok(new { Added = newGames.Count, Skipped = existingAppIds.Count });
+            return Ok(new { Added = games.Count });
         }
 
         private async Task<(Game? game, string? error)> TryImportGameLogic(int appid)

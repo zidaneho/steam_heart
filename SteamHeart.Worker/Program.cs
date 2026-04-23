@@ -1,25 +1,34 @@
-﻿// Program.cs
+// Program.cs
 using System;
 using System.Threading.Tasks;
 
-// Make sure this namespace matches where your "SteamCatalogService" is defined
-// using SteamHeartAPI.Services; 
+var mode = args.Length > 0 ? args[0] : "upload";
 
-Console.WriteLine("Initializing Steam Catalog Service...");
-
-try 
+try
 {
-    // 1. Instantiate the service
-    var service = new SteamCatalogService();
-
-    // 2. Run the update
-    await service.UpdateGameListAsync();
+    if (mode == "csv")
+    {
+        var outputPath = args.Length > 1 ? args[1] : "games.csv";
+        Console.WriteLine($"Mode: CSV export → {outputPath}");
+        var exporter = new SteamCsvExportService();
+        await exporter.ExportToCsvAsync(outputPath);
+    }
+    else if (mode == "enrich")
+    {
+        Console.WriteLine("Mode: Enrichment");
+        var enricher = new SteamEnrichmentService();
+        await enricher.EnrichAllAsync();
+    }
+    else
+    {
+        Console.WriteLine("Mode: API upload");
+        Console.WriteLine("Initializing Steam Catalog Service...");
+        var service = new SteamCatalogService();
+        await service.UpdateGameListAsync();
+    }
 }
 catch (Exception ex)
 {
     Console.WriteLine($"CRITICAL ERROR: {ex.Message}");
     Console.WriteLine(ex.StackTrace);
 }
-
-Console.WriteLine("Job finished. Press any key to exit.");
-Console.ReadKey();
