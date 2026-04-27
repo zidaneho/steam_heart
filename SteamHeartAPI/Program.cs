@@ -118,6 +118,19 @@ app.UseCors("ProductionCors");
 
 app.UseHttpsRedirection();
 
+app.MapGet("/api/health", async (SteamHeartContext db) =>
+{
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("SELECT 1");
+        return Results.Ok(new { status = "ok", database = "connected" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "error", database = ex.Message }, statusCode: 500);
+    }
+}).ExcludeFromDescription();
+
 app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapControllers();
