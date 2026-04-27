@@ -58,21 +58,28 @@ namespace SteamHeartAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Game>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var query = context.GameTable.OrderBy(g => g.Id);
-            var total = await query.CountAsync();
-            var games = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-            
-            return Ok(new
+            try
             {
-                Data = games,
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = total,
-                TotalPages = (int)Math.Ceiling(total / (double)pageSize)
-            });
+                var query = context.GameTable.OrderBy(g => g.Id);
+                var total = await query.CountAsync();
+                var games = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    Data = games,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalCount = total,
+                    TotalPages = (int)Math.Ceiling(total / (double)pageSize)
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message, type = ex.GetType().Name });
+            }
         }
 
         // GET: api/games/5
