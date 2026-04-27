@@ -1,0 +1,60 @@
+name: Sync Reviews
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # Daily at 3 AM UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Fetch all games and sync reviews
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+        run: |
+          PAGE=1
+          PAGE_SIZE=100
+          TOTAL_PAGES=1
+
+          while [ "$PAGE" -le "$TOTAL_PAGES" ]; do
+            echo "Fetching games page $PAGE..."
+
+            RESPONSE=$(curl -s -f \
+              -H "X-Api-Key: $X_API_KEY" \
+              "$API_URL/api/games?page=$PAGE&pageSize=$PAGE_SIZE")
+
+            if [ $? -ne 0 ]; then
+              echo "Failed to fetch games page $PAGE, aborting."
+              exit 1
+            fi
+
+            if [ "$PAGE" -eq 1 ]; then
+              TOTAL_PAGES=$(echo "$RESPONSE" | jq '.totalPages')
+              echo "Total pages: $TOTAL_PAGES"
+            fi
+
+            # Extract internal game IDs (not AppIds) for the reviews endpoint
+            GAME_IDS=$(echo "$RESPONSE" | jq '.data[].id')
+            for GAME_ID in $GAME_IDS; do
+              echo "  Syncing reviews for game $GAME_ID..."
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                -H "X-Api-Key: $X_API_KEY" \
+                "$API_URL/api/games/$GAME_ID/reviews/sync")
+
+              if [ "$STATUS" = "200" ]; then
+                echo "  [OK] Game $GAME_ID"
+              else
+                echo "  [FAIL] Game $GAME_ID (HTTP $STATUS)"
+              fi
+
+              sleep 2
+            done
+
+            PAGE=$((PAGE + 1))
+          done
+
+          echo "Reviews sync complete."

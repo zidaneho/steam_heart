@@ -1,0 +1,62 @@
+name: Sync Metrics
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Every hour
+  workflow_dispatch:        # Allow manual trigger from GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Fetch all games and import metrics
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+        run: |
+          PAGE=1
+          PAGE_SIZE=100
+          TOTAL_PAGES=1
+
+          while [ "$PAGE" -le "$TOTAL_PAGES" ]; do
+            echo "Fetching games page $PAGE..."
+
+            RESPONSE=$(curl -s -f \
+              -H "X-Api-Key: $X_API_KEY" \
+              "$API_URL/api/games?page=$PAGE&pageSize=$PAGE_SIZE")
+
+            if [ $? -ne 0 ]; then
+              echo "Failed to fetch games page $PAGE, aborting."
+              exit 1
+            fi
+
+            # Parse totalPages on first iteration
+            if [ "$PAGE" -eq 1 ]; then
+              TOTAL_PAGES=$(echo "$RESPONSE" | jq '.totalPages')
+              echo "Total pages: $TOTAL_PAGES"
+            fi
+
+            # Extract AppIds and import a metric snapshot for each
+            APP_IDS=$(echo "$RESPONSE" | jq '.data[].appId')
+            for APP_ID in $APP_IDS; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+                -H "X-Api-Key: $X_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$APP_ID" \
+                "$API_URL/api/metrics/import")
+
+              if [ "$STATUS" = "201" ]; then
+                echo "  [OK] AppId $APP_ID"
+              else
+                echo "  [SKIP] AppId $APP_ID (HTTP $STATUS)"
+              fi
+
+              sleep 1
+            done
+
+            PAGE=$((PAGE + 1))
+          done
+
+          echo "Metrics sync complete."
