@@ -23,14 +23,17 @@ jobs:
           while [ "$PAGE" -le "$TOTAL_PAGES" ]; do
             echo "Fetching games page $PAGE..."
 
-            RESPONSE=$(curl -s -f \
+            HTTP_STATUS=$(curl -s -o /tmp/games_response.json -w "%{http_code}" \
               -H "X-Api-Key: $X_API_KEY" \
               "$API_URL/api/games?page=$PAGE&pageSize=$PAGE_SIZE")
 
-            if [ $? -ne 0 ]; then
-              echo "Failed to fetch games page $PAGE, aborting."
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "Failed to fetch games page $PAGE (HTTP $HTTP_STATUS):"
+              cat /tmp/games_response.json
               exit 1
             fi
+
+            RESPONSE=$(cat /tmp/games_response.json)
 
             if [ "$PAGE" -eq 1 ]; then
               TOTAL_PAGES=$(echo "$RESPONSE" | jq '.totalPages')
